@@ -1,0 +1,137 @@
+GemBot Project Status ReportCurrent Version: v1.2.0Date: December 3, 2025Status: 🟢 Operational / Stable1. Current Architecture (The "Hybrid" Engine)We have successfully built a high-performance hybrid system that leverages the isolation of Docker with the raw power of the Windows Host GPU.Brain (Docker Container):Runs the Discord Bot logic (Python).Hosts the "Specialist" tools:Browser Agent: Playwright (Headless Chromium) for web automation/crawling.OSINT Toolkit: Network scanning, Whois, Phone number validation.Router Logic: Classifies intent (Chat vs Code vs Image vs Browse).Muscle (Windows Host GPU - RTX 3090 Ti):LLM Inference: Ollama running Llama 3 (8B) at ~154 tokens/sec.Image Generation: Stable Diffusion (Automatic1111) generating images in ~1.4 seconds.2. Active CapabilitiesFeatureEnginePerformanceStatusChat / LogicLlama 3 (8B)~150 t/s✅ PerfectCodingCodeLlama~150 t/s✅ PerfectImage GenStable Diffusion~1.4s / img✅ PerfectWeb CrawlingBeautifulSoup< 1s✅ PerfectAutomationPlaywright< 0.5s boot✅ PerfectOSINTNative PythonInstant✅ PerfectService DiscoveryCustom Auto-DiscoveryN/A✅ Perfect3. Future Implementations (Roadmap)Based on the current foundation, here is the immediate roadmap for v1.3 and beyond:Phase 1: Visual Perception (Multimodal)Goal: Allow the bot to see images, not just generate them.Implementation: Switch Ollama model to llava (Large Language-and-Vision Assistant).Use Case: User uploads a screenshot of an error, bot diagnoses it.Phase 2: Video GenerationGoal: Enable VIDEO intent.Implementation: Integrate Stable Video Diffusion (SVD).Requirement: Likely requires running ComfyUI on the host (port 8188) alongside A1111, as SVD support in A1111 is limited.Phase 3: Long-Term Memory (RAG)Goal: The bot remembers conversations from days ago or reads huge PDF docs.Implementation: Add a Vector Database (like ChromaDB) inside the Docker container.Flow: Store embeddings of chat history; retrieve relevant context before querying Llama 3.Phase 4: Voice InterfaceGoal: Voice channel support.Implementation:Hearing: OpenAI Whisper (Local) for Speech-to-Text.Speaking: Coqui TTS or Piper (Local) for Text-to-Speech.4. Known ConstraintsVideo VRAM Usage: Running Llama 3 + SD + SVD simultaneously might hit the 24GB VRAM limit. We may need to implement "Model Swapping" (unloading SD when using LLM) for heavier tasks.Captcha Solving: The code currently detects captchas but requires a paid API key (2Captcha/Anti-Captcha) to solve them.GemBot Project Status Report
+
+Current Version: v1.2.0
+Date: December 3, 2025
+Status: 🟢 Operational / Stable
+
+1. Current Architecture (The "Hybrid" Engine)
+
+We have successfully built a high-performance hybrid system that leverages the isolation of Docker with the raw power of the Windows Host GPU.
+
+Brain (Docker Container):
+
+Runs the Discord Bot logic (Python).
+
+Hosts the "Specialist" tools:
+
+Browser Agent: Playwright (Headless Chromium) for web automation/crawling.
+
+OSINT Toolkit: Network scanning, Whois, Phone number validation.
+
+Router Logic: Classifies intent (Chat vs Code vs Image vs Browse).
+
+Muscle (Windows Host GPU - RTX 3090 Ti):
+
+LLM Inference: Ollama running Llama 3 (8B) at ~154 tokens/sec.
+
+Image Generation: Stable Diffusion (Automatic1111) generating images in ~1.4 seconds.
+
+2. Active Capabilities
+
+Feature
+
+Engine
+
+Performance
+
+Status
+
+Chat / Logic
+
+Llama 3 (8B)
+
+~150 t/s
+
+✅ Perfect
+
+Coding
+
+CodeLlama
+
+~150 t/s
+
+✅ Perfect
+
+Image Gen
+
+Stable Diffusion
+
+~1.4s / img
+
+✅ Perfect
+
+Web Crawling
+
+BeautifulSoup
+
+< 1s
+
+✅ Perfect
+
+Automation
+
+Playwright
+
+< 0.5s boot
+
+✅ Perfect
+
+OSINT
+
+Native Python
+
+Instant
+
+✅ Perfect
+
+Service Discovery
+
+Custom Auto-Discovery
+
+N/A
+
+✅ Perfect
+
+3. Future Implementations (Roadmap)
+
+Based on the current foundation, here is the immediate roadmap for v1.3 and beyond:
+
+Phase 1: Visual Perception (Multimodal)
+
+Goal: Allow the bot to see images, not just generate them.
+
+Implementation: Switch Ollama model to llava (Large Language-and-Vision Assistant).
+
+Use Case: User uploads a screenshot of an error, bot diagnoses it.
+
+Phase 2: Video Generation
+
+Goal: Enable VIDEO intent.
+
+Implementation: Integrate Stable Video Diffusion (SVD).
+
+Requirement: Likely requires running ComfyUI on the host (port 8188) alongside A1111, as SVD support in A1111 is limited.
+
+Phase 3: Long-Term Memory (RAG)
+
+Goal: The bot remembers conversations from days ago or reads huge PDF docs.
+
+Implementation: Add a Vector Database (like ChromaDB) inside the Docker container.
+
+Flow: Store embeddings of chat history; retrieve relevant context before querying Llama 3.
+
+Phase 4: Voice Interface
+
+Goal: Voice channel support.
+
+Implementation:
+
+Hearing: OpenAI Whisper (Local) for Speech-to-Text.
+
+Speaking: Coqui TTS or Piper (Local) for Text-to-Speech.
+
+4. Known Constraints
+
+Video VRAM Usage: Running Llama 3 + SD + SVD simultaneously might hit the 24GB VRAM limit. We may need to implement "Model Swapping" (unloading SD when using LLM) for heavier tasks.
+
+Captcha Solving: The code currently detects captchas but requires a paid API key (2Captcha/Anti-Captcha) to solve them.

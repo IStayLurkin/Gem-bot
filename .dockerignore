@@ -1,0 +1,17 @@
+Ignore the massive Stable Diffusion directory
+
+stable-diffusion-webui/
+
+Ignore the virtual environment
+
+venv/
+
+Ignore the web interface files that are in a separate container/process
+
+omnibot-docker/
+
+Ignore temporary/log directories
+
+temp/
+pycache/
+*.log
