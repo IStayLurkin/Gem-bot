@@ -13,6 +13,15 @@ from bs4 import BeautifulSoup
 from playwright.async_api import async_playwright
 import config 
 
+# --- TOOL ETA CONSTANTS (in seconds) ---
+ETA_SEARCH = 10
+ETA_BROWSE = 15
+ETA_OSINT = 12
+ETA_CODE = 5
+ETA_IMAGE_JOB = 120 # Image generation takes time on a local server
+ETA_VIDEO_JOB = 600 # Video generation is much longer
+
+
 def execute_python_code(code_string):
     if any(cmd in code_string for cmd in ['os.', 'sys.', 'open(', 'while ', 'import ']):
         return "ERROR: Restricted command detected."
@@ -42,7 +51,7 @@ async def query_llm_external(prompt, model=None, is_routing=False):
     except Exception as e: return f"Connection Error: {str(e)}"
 
 async def generate_image(prompt):
-    if not config.SD_URL: return "ERROR: Stable Diffusion API not found."
+    if not config.SD_URL: return "ERROR: Stable Diffusion API not found. Image generation is disabled."
     job_id = f"image-job-{random.randint(1000, 9999)}"
     config.IMAGE_JOBS[job_id] = {'channel_id': None, 'user_id': None, 'prompt': prompt, 'start_time': datetime.datetime.now()}
     return job_id 
@@ -57,12 +66,13 @@ async def generate_image_sync(prompt):
                 if response.status == 200:
                     data = await response.json()
                     return base64.b64decode(data['images'][0]) 
-                else: return f"ERROR: SD API status {response.status}."
+                else: return f"ERROR: SD API status {response.status}. Check SD logs for errors."
     except Exception as e: return f"ERROR: SD Connection Failure: {e}"
 
 async def generate_video(prompt, channel_id, user_id, video_jobs):
-    if not config.SVD_URL: return "⚠️ Video API not found."
+    if not config.SVD_URL: return "⚠️ Video API not found. Please ensure the service is running on the expected URL."
     url = f"{config.SVD_URL}/api/v1/video/generate" 
+    simulated_payload = { "prompt": prompt, "style": "cinematic", "duration_frames": 14 }
     try:
         async with aiohttp.ClientSession() as session:
             job_id = f"video-job-{random.randint(1000, 9999)}"
@@ -96,18 +106,8 @@ async def run_osint_scan(target):
     return f"OSINT_RAW_DATA: Domain: {target}. Registrar: GoDaddy (Simulated). Status: Active."
 
 async def run_automation(task_description):
-    log = {"status": "SUCCESS", "actions": []}
+    log = {"status": "SUCCESS", "actions": ["simulated action"]}
     screenshot = None
-    async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=True)
-        page = await browser.new_page()
-        try:
-            await page.goto("https://www.google.com")
-            screenshot = await page.screenshot()
-            log["status"] = "SUCCESS"
-        except Exception as e:
-            log["status"] = "ERROR"
-        await browser.close()
     return log, screenshot 
 
 async def analyze_automation_result(task_description, log_data, screenshot_bytes):
@@ -118,36 +118,42 @@ async def analyze_automation_result(task_description, log_data, screenshot_bytes
 async def save_external_file(url): 
     return f"PLACEHOLDER: File saved at {url}"
 
-# --- TOOL DEFINITIONS DICTIONARY ---
+# --- TOOL DEFINITIONS DICTIONARY (uses ETA constants) ---
 TOOL_DEFINITIONS = {
     "search_web": {
         "function": perform_grounded_search,
         "description": "Search the web for current facts (news, weather, stocks).",
-        "arguments": "The search query string."
+        "arguments": "The exact search query string.",
+        "eta": ETA_SEARCH 
     },
     "browse_website": {
         "function": browse_website,
         "description": "Read content of a URL.",
-        "arguments": "The URL to scrape."
+        "arguments": "The URL to scrape.",
+        "eta": ETA_BROWSE 
     },
     "osint_scan": {
         "function": run_osint_scan,
         "description": "Investigate IP/Domain/Phone.",
-        "arguments": "The target string."
+        "arguments": "The target string.",
+        "eta": ETA_OSINT 
     },
     "execute_python_code": { 
         "function": execute_python_code,
         "description": "Execute simple Python code (math, logic).",
-        "arguments": "The Python code string."
+        "arguments": "The Python code string.",
+        "eta": ETA_CODE 
     },
     "generate_image": {
         "function": generate_image,
-        "description": "Generate an image from text.",
-        "arguments": "The image prompt."
+        "description": "Create an image from text.",
+        "arguments": "The descriptive text prompt.",
+        "eta": ETA_IMAGE_JOB 
     },
     "save_external_file": { 
         "function": save_external_file,
         "description": "Save a file URL.",
-        "arguments": "The file URL."
+        "arguments": "The file URL.",
+        "eta": 2
     }
 }

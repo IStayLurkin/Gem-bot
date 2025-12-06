@@ -1,4 +1,5 @@
 @echo off
+chcp 65001
 TITLE GemBot System Launcher
 
 echo =====================================================
@@ -18,10 +19,14 @@ echo [1/5] Clearing Ports...
 for /f "tokens=5" %%a in ('netstat -aon ^| find ":7860" ^| find "LISTENING"') do taskkill /f /pid %%a >nul 2>&1
 taskkill /FI "WINDOWTITLE eq Stable Diffusion API" /T /F >nul 2>&1
 
+:: --- PATCH: Silence all Python Warnings for Stable Diffusion ---
+set PYTHONWARNINGS=ignore
+:: -----------------------------------------------------------------
+
 :: 2. Start Stable Diffusion
 echo [2/5] Launching Stable Diffusion...
 start "Stable Diffusion API" /d "G:\GemBot\stable-diffusion-webui" webui-user.bat
-timeout /t 8 /nobreak >nul
+timeout /t 15 /nobreak >nul
 
 :: 3. Start Discord Bot (Backend)
 echo [3/5] Waking up Docker Bot...
@@ -42,7 +47,6 @@ docker run -d --restart unless-stopped --name my-discord-bot ^
 --add-host=host.docker.internal:host-gateway gembot
 
 :: --- END NEW VOLUME LOGIC ---
-
 
 :: 4. Start OmniBot Web Server (Frontend)
 echo [4/5] Starting OmniBot Web Server...

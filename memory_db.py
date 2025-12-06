@@ -2,10 +2,10 @@ import aiohttp
 import asyncio
 import datetime
 import json
-# FIX: Import MASTER_USER_ID
 from config import FIREBASE_API_KEY, FIREBASE_PROJECT_ID, APP_ID, GLOBAL_CONFIG, MASTER_USER_ID
 from core import query_llm 
 
+# F.3. Get Global Config (Moved here to avoid import conflicts)
 async def get_global_config(guild_id=None, channel_id=None):
     if not FIREBASE_API_KEY or not FIREBASE_PROJECT_ID: return
     global_url = f"https://firestore.googleapis.com/v1/projects/{FIREBASE_PROJECT_ID}/databases/(default)/documents/config/global?key={FIREBASE_API_KEY}"
@@ -18,15 +18,13 @@ async def get_global_config(guild_id=None, channel_id=None):
                         k: int(fields.get(k, {}).get('integerValue', GLOBAL_CONFIG[k]))
                         for k in GLOBAL_CONFIG if k != 'MAX_TOOL_RESULT_LENGTH' and k in fields
                     })
-    except Exception as e: print(f"Config Warning: {e}")
+    except Exception as e: print(f"⚠️ Config Fetch Warning: {e}")
 
 async def get_shared_memories(guild_id):
-    # Use MASTER_USER_ID for everything now
     return await fetch_raw_memories(None)
 
 async def fetch_raw_memories(user_id):
     if not FIREBASE_API_KEY or not FIREBASE_PROJECT_ID: return []
-    # FIX: Use MASTER_USER_ID instead of user_id
     url = f"https://firestore.googleapis.com/v1/projects/{FIREBASE_PROJECT_ID}/databases/(default)/documents/artifacts/{APP_ID}/users/{MASTER_USER_ID}/memory_facts?key={FIREBASE_API_KEY}"
     try:
         async with aiohttp.ClientSession() as session:
@@ -58,7 +56,6 @@ async def clear_all_memory(user_id):
 
 async def delete_memory(user_id, doc_id):
     if not FIREBASE_API_KEY or not FIREBASE_PROJECT_ID: return
-    # FIX: Use MASTER_USER_ID
     url = f"https://firestore.googleapis.com/v1/projects/{FIREBASE_PROJECT_ID}/databases/(default)/documents/artifacts/{APP_ID}/users/{MASTER_USER_ID}/memory_facts/{doc_id}?key={FIREBASE_API_KEY}"
     try:
         async with aiohttp.ClientSession() as session:
@@ -68,7 +65,6 @@ async def delete_memory(user_id, doc_id):
 
 async def save_memory(user_id, fact):
     if not FIREBASE_API_KEY or not FIREBASE_PROJECT_ID: return
-    # FIX: Use MASTER_USER_ID
     url = f"https://firestore.googleapis.com/v1/projects/{FIREBASE_PROJECT_ID}/databases/(default)/documents/artifacts/{APP_ID}/users/{MASTER_USER_ID}/memory_facts?key={FIREBASE_API_KEY}"
     payload = { "fields": { "content": {"stringValue": fact}, "createdAt": {"timestampValue": datetime.datetime.utcnow().isoformat() + "Z"} } }
     try:

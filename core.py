@@ -1,11 +1,10 @@
 import aiohttp
 import asyncio
-import config # <--- IMPORTING MODULE TO SEE UPDATES
+import config 
 
 async def query_llm(prompt, model=None, return_stats=False, is_routing=False, system_context="", chat_history=None, attachments=None):
     target_model = model if model else config.ROUTER_MODEL
 
-    # Check the CONFIG module directly
     if not config.OLLAMA_URL: return "Error: Ollama not connected." 
     
     final_prompt = prompt

@@ -23,51 +23,89 @@ intents.message_content = True
 intents.reactions = True 
 client = discord.Client(intents=intents)
 
+# Helper for time formatting
+def format_time_elapsed(start_time):
+    delta = datetime.datetime.now() - start_time
+    minutes = int(delta.total_seconds() // 60)
+    seconds = int(delta.total_seconds() % 60)
+    return f"{minutes}m {seconds}s"
+
+
 async def image_polling_loop():
     while True:
         await asyncio.sleep(config.GLOBAL_CONFIG['POLLING_INTERVAL'])
-        if not config.IMAGE_JOBS or not config.SD_URL: continue
+        if not config.SD_URL: continue
+        if not config.IMAGE_JOBS: continue
+        
         jobs_to_remove = []
         for job_id, job_data in config.IMAGE_JOBS.items():
             try:
-                if (datetime.datetime.now() - job_data['start_time']).total_seconds() > config.GLOBAL_CONFIG['POLLING_INTERVAL'] * random.uniform(1, 2.5):
-                    jobs_to_remove.append(job_id)
-                    channel = client.get_channel(job_data['channel_id'])
+                start_time = job_data['start_time']
+                time_elapsed = (datetime.datetime.now() - start_time).total_seconds()
+                channel = client.get_channel(job_data['channel_id'])
+
+                if time_elapsed > config.GLOBAL_CONFIG['POLLING_INTERVAL'] * random.uniform(1, 2.5):
+                    print(f"🔄 Polling: Job {job_id} ready. Attempting image retrieval...")
+                    
                     img_bytes = await generate_image_sync(job_data['prompt']) 
+
                     if channel and isinstance(img_bytes, bytes):
+                        time_spent = format_time_elapsed(start_time)
                         with io.BytesIO(img_bytes) as f:
-                            new_message = await channel.send(f'🎉 **Image Complete** (Job ID: {job_id})', file=discord.File(fp=f, filename='art.png'))
+                            new_message = await channel.send(
+                                f"🎉 **Image Complete** (Took {time_spent}). Prompt: *{job_data['prompt'][:50]}*",
+                                file=discord.File(fp=f, filename='art.png')
+                            )
                             await new_message.add_reaction('♻️')
-            except Exception as e: print(f'Image Polling Error: {e}')
+                        jobs_to_remove.append(job_id)
+
+                    elif channel:
+                         error_message = img_bytes if isinstance(img_bytes, str) else "Unknown API Error."
+                         await channel.send(f"❌ **Image Job Failed** (Took {format_time_elapsed(start_time)}). Reason: {error_message}")
+                         jobs_to_remove.append(job_id)
+
+            except Exception as e:
+                print(f"CRITICAL POLLING ERROR in job {job_id}: {e}")
+                jobs_to_remove.append(job_id)
+
         for job_id in jobs_to_remove: del config.IMAGE_JOBS[job_id]
 
 async def video_polling_loop():
     while True:
         await asyncio.sleep(config.GLOBAL_CONFIG['POLLING_INTERVAL'])
         if not config.VIDEO_JOBS or not config.SVD_URL: continue
+        
         jobs_to_remove = []
         for job_id, job_data in config.VIDEO_JOBS.items():
-            if (datetime.datetime.now() - job_data['start_time']).total_seconds() > config.GLOBAL_CONFIG['POLLING_INTERVAL'] * 3:
+            start_time = job_data['start_time']
+            time_elapsed = (datetime.datetime.now() - start_time).total_seconds()
+
+            if time_elapsed > TOOL_DEFINITIONS['generate_video']['eta'] + config.GLOBAL_CONFIG['POLLING_INTERVAL']:
                 jobs_to_remove.append(job_id)
                 channel = client.get_channel(job_data['channel_id'])
-                if channel: await channel.send(f'🎉 **Video Complete** (Job ID: {job_id})')
+                if channel:
+                    time_spent = format_time_elapsed(start_time)
+                    await channel.send(f"🎉 **Video Complete** (Took {time_spent}). The video for **{job_data['prompt'][:50]}** is ready! (Placeholder URL).")
+            
         for job_id in jobs_to_remove: del config.VIDEO_JOBS[job_id]
 
 async def execute_tool_agent(user_prompt, channel, long_term_memory, chat_history):
-    # FIX: Swapped quotes to avoid backslash in f-string
-    tool_defs = '\n'.join([f'{name}: {func["description"]}' for name, func in TOOL_DEFINITIONS.items()])
+    # This list provides the function names and descriptions for the prompt
+    tool_defs = '\n'.join([f'- **{name}** (ETA: {func["eta"]}s): {func["description"]}' for name, func in TOOL_DEFINITIONS.items()])
     
-    # --- STRICT 'NO MONOLOGUE' PROMPT ---
+    # --- FIXED PROMPT: NOW INCLUDES MEMORY ---
     system_instruction = (
         "You are OmniBot, a smart, casual, and helpful AI assistant on Discord. "
+        "You always prioritize natural conversation. You have access to the tools listed below. "
         f"I have provided your Long Term Memory below. Use it to answer personal questions instantly.\n\n"
-        f"=== LONG TERM MEMORY ===\n{long_term_memory}\n========================\n\n"
-        f"Available Tools:\n{tool_defs}\n\n"
+        
+        f"Available Tools (Use the short name in bold):\n{tool_defs}\n\n"
+        
         "**CRITICAL RULES:**\n"
-        "1. **Direct Speech Only:** Never narrate your thought process. Do NOT say 'Let me check', 'According to records', or 'Ah-ha!'. Just give the answer directly.\n"
-        "2. **Be Casual:** Speak naturally. If you know the user's name, use it.\n"
-        "3. **Tool Use:** If you need a tool (search, image, code), output ONLY the JSON: {\"tool_name\": \"...\", \"arguments\": \"...\"}.\n"
-        "4. **Normal Chat:** If no tool is needed, just reply with the text."
+        "1. **Direct Speech Only:** Never narrate your thought process. Just give the answer directly.\n"
+        "2. **Tool Call Format:** If you use a tool, output ONLY the JSON: {\"tool_name\": \"[short_name]\", \"arguments\": \"[argument_string]\"}.\n"
+        "3. **SHORT NAME MANDATORY:** The \"tool_name\" must be one of the short names listed above (e.g., generate_image, search_web).\n"
+        "4. **Final Answer:** If no tool is needed, output 'FINAL ANSWER: [Your response]'.\n"
     )
     
     full_prompt = f'{system_instruction}\nContext: {chat_history}\nPrompt: {user_prompt}'
@@ -75,32 +113,36 @@ async def execute_tool_agent(user_prompt, channel, long_term_memory, chat_histor
     for i in range(3):
         llm_response = await query_llm(full_prompt, is_routing=True)
         
-        # Clean any lingering tags just in case
         clean_response = llm_response.replace('FINAL ANSWER:', '').strip()
         
+        if 'FINAL ANSWER:' in llm_response:
+            return clean_response
+            
         try:
-            # Try to parse as JSON tool call
             tool_call = json.loads(clean_response)
             tool_name = tool_call.get('tool_name')
             tool_args = tool_call.get('arguments')
             
             if tool_name in TOOL_DEFINITIONS:
-                await channel.send(f'🛠️ *Agent using {tool_name}...*')
-                if tool_name == 'generate_image': return await generate_image(tool_args)
+                # Calculate and display ETA immediately
+                eta_sec = TOOL_DEFINITIONS[tool_name]['eta']
+                await channel.send(f'🛠️ *Agent is using **{tool_name}** (ETA: {eta_sec}s)...*') 
                 
+                if tool_name == 'generate_image': 
+                    job_id = await generate_image(tool_args)
+                    config.IMAGE_JOBS[job_id].update({'channel_id': channel.id}) 
+                    return f"Image job started. Polling for results..."
+
                 tool_func = TOOL_DEFINITIONS[tool_name]['function']
                 if tool_name == 'execute_python_code': result = tool_func(tool_args)
                 else: result = await tool_func(tool_args)
                 
-                # Feed result back to LLM
                 full_prompt += f'\nTOOL RESULT: {result}\nDecide next step (JSON or Text):'
             else: 
-                # If valid JSON but wrong tool, return error
-                return f'❌ Agent Error: Unknown tool {tool_name}'
+                return f'❌ Agent Error: Tool name must be one of the short names. Received: {tool_name}'
         except json.JSONDecodeError: 
-            # If it's NOT JSON, it's the final answer. Return it immediately.
-            return clean_response
-            
+            if i == 0: return clean_response
+            return '❌ Agent failed to reason.'
     return '⚠️ Agent timed out.'
 
 async def find_service(service_name, possible_urls, validation_endpoint):
@@ -145,8 +187,14 @@ async def on_message(message):
         # Simple routing for now to ensure stability
         response = await execute_tool_agent(clean_prompt, message.channel, memory_block, [])
         
+        if isinstance(response, str) and response.startswith('Image job started. Polling for results...'):
+             await message.channel.send(response)
+             return # Polling loop handles the rest
+        
         if isinstance(response, str) and response.startswith('image-job-'):
-            config.IMAGE_JOBS[response] = {'channel_id': message.channel.id, 'prompt': clean_prompt, 'start_time': datetime.datetime.now()}
+            # This path is hit if the agent returns ONLY the job ID string, which we fixed above.
+            # We treat this as an immediate image job start success.
+            config.IMAGE_JOBS[response].update({'channel_id': message.channel.id, 'prompt': clean_prompt})
             await message.channel.send(f'🖼️ Image Job {response} queued.')
         else:
             await message.channel.send(response)
