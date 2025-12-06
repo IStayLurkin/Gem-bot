@@ -1,0 +1,26 @@
+# Discord Bot
+discord.py[voice]>=2.3.0
+
+# HTTP Client
+aiohttp>=3.9.0
+
+# Environment Variables
+python-dotenv>=1.0.0
+
+# Web Scraping
+beautifulsoup4>=4.12.0
+playwright>=1.40.0
+
+# OSINT Tools
+python-whois>=0.8.0
+phonenumbers>=8.13.0
+
+# Local GPU Image Generation (Optional - install if using local SD)
+torch>=2.0.0
+diffusers>=0.21.0
+transformers>=4.35.0
+accelerate>=0.24.0
+xformers>=0.0.22; sys_platform != "darwin"  # Optional, for memory efficiency
+
+# Note: sqlite3 is built into Python, no need to install
+

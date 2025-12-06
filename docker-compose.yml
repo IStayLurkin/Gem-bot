@@ -1,0 +1,39 @@
+version: "3.9"
+
+services:
+  gem_ai:
+    build: ./ai_container
+    container_name: gem-ai
+    restart: unless-stopped
+    environment:
+      - DISCORD_TOKEN=${DISCORD_TOKEN}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - CAPTCHA_API_KEY=${CAPTCHA_API_KEY}
+      - TARGET_CHANNEL_ID=${TARGET_CHANNEL_ID}
+      - ROUTER_MODEL=${ROUTER_MODEL:-llama3}
+      - LOCAL_SD_ENABLED=${LOCAL_SD_ENABLED:-false}
+      - LOCAL_SD_DEVICE=${LOCAL_SD_DEVICE:-cuda}
+      - LOCAL_SD_STEPS=${LOCAL_SD_STEPS:-30}
+      - LOCAL_SD_GUIDANCE=${LOCAL_SD_GUIDANCE:-6.0}
+    volumes:
+      # Persist SQLite database
+      - ./ai_container/gem_memory.db:/app/gem_memory.db
+      # Persist generated images
+      - ./ai_container/generated:/app/generated
+      # Mount models directory (optional - for local SD models)
+      - ./ai_container/models:/app/models
+    # Uncomment below if you have CUDA support and want GPU acceleration
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
+    networks:
+      - gem-bot-network
+
+networks:
+  gem-bot-network:
+    driver: bridge
+
